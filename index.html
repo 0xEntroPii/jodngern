@@ -243,12 +243,15 @@
   <section class="screen active" id="s-add">
     <div class="topbar">
       <div class="streak" id="streak">🔥 0 วัน</div>
-      <div class="date" id="today"></div>
+      <div style="position:relative">
+        <div class="date" id="today" style="cursor:pointer" onclick="openDatePicker()"></div>
+        <input type="date" id="entrydate-input" onchange="setEntryDate(this.value)" style="position:absolute;left:0;bottom:-2px;opacity:0;width:1px;height:1px;pointer-events:none;border:none;padding:0;margin:0">
+      </div>
       <button class="iconbtn" onclick="go('summary')">📊</button>
     </div>
 
     <div class="daycard">
-      <div class="lbl">วันนี้ใช้ไป</div>
+      <div class="lbl" id="day-lbl">วันนี้ใช้ไป</div>
       <div class="amt" id="day-spent">฿0</div>
       <div class="budgetbar"><span id="day-bar"></span></div>
       <div class="budget-note muted" id="day-note">ยังไม่ได้ตั้งงบรายวัน</div>
@@ -282,24 +285,28 @@
   <!-- ===== SUMMARY SCREEN ===== -->
   <section class="screen" id="s-summary">
     <h1 style="margin:6px 4px 16px;font-size:22px">สรุป</h1>
-    <div class="seg" id="sum-seg">
-      <button class="on" data-p="cycle" onclick="setSumPeriod('cycle')">รอบนี้</button>
-      <button data-p="prev" onclick="setSumPeriod('prev')">รอบที่แล้ว</button>
-      <button data-p="custom" onclick="setSumPeriod('custom')">กำหนดเอง</button>
+    <div class="seg" id="view-seg">
+      <button class="on" data-v="month" onclick="setSumView('month')">รายเดือน</button>
+      <button data-v="year" onclick="setSumView('year')">รายปี</button>
     </div>
-    <div class="period-row">
-      <span class="lbl" id="period-lbl"></span>
+    <div class="period-row" id="period-nav"></div>
+    <div class="seg" id="type-seg">
+      <button class="on" data-t="all" onclick="setSumType('all')">ทั้งหมด</button>
+      <button data-t="income" onclick="setSumType('income')">รายรับ</button>
+      <button data-t="expense" onclick="setSumType('expense')">รายจ่าย</button>
     </div>
+    <select id="cat-filter" onchange="setSumCat(this.value)" style="width:100%;padding:11px;border:.5px solid var(--line2);border-radius:10px;background:var(--surface);font-size:14px;color:var(--text);margin-bottom:16px"></select>
     <div class="balcard">
-      <div class="lbl muted">คงเหลือรอบนี้ (รับ − จ่าย)</div>
+      <div class="lbl muted">คงเหลือ (รับ − จ่าย)</div>
       <div class="amt" id="balance" style="font-size:30px;font-weight:700;margin-top:4px"></div>
     </div>
     <div class="twocard">
       <div class="statcard"><div class="l">รายรับ</div><div class="v inc" id="sum-inc">฿0</div></div>
       <div class="statcard"><div class="l">รายจ่าย</div><div class="v exp" id="sum-exp">฿0</div></div>
     </div>
-    <div class="sectitle">รายจ่ายแยกหมวด</div>
+    <div class="sectitle" id="break-title">รายจ่ายแยกหมวด</div>
     <div id="catbreak"></div>
+    <div id="monthbreak"></div>
   </section>
 
   <!-- ===== GOALS SCREEN ===== -->
@@ -318,9 +325,10 @@
     <div class="sectitle">งบและรอบ</div>
     <div class="setgroup">
       <div class="setrow"><span class="l">งบรายวัน (฿)</span><input type="number" id="set-daily" inputmode="numeric" onchange="saveSettings()" /></div>
-      <div class="setrow"><span class="l">วันเริ่มรอบงบ</span><input type="number" id="set-cycle" inputmode="numeric" min="1" max="31" onchange="saveSettings()" /></div>
+      <div class="setrow"><span class="l">วันเริ่มรอบ</span><input type="number" id="set-cycle" inputmode="numeric" min="1" max="31" onchange="saveSettings()" /></div>
+      <div class="setrow"><span class="l">วันสิ้นสุดรอบ</span><input type="number" id="set-cycle-end" inputmode="numeric" min="1" max="31" onchange="saveSettings()" /></div>
     </div>
-    <p class="hint" style="font-size:12px;margin:-8px 4px 18px">เช่น เงินเดือนออกวันที่ 25 → ตั้ง 25 แล้วรอบจะเป็น 25 ถึง 24 เดือนถัดไป</p>
+    <p class="hint" style="font-size:12px;margin:-8px 4px 18px">เช่น เงินเดือนออกวันที่ 25 → เริ่ม 25, สิ้นสุด 24 (รอบจะเป็น 25 ถึง 24 เดือนถัดไป) · ถ้าใช้รอบปฏิทินตั้งเริ่ม 1, สิ้นสุด 31</p>
 
     <div class="sectitle">หมวดรายจ่าย</div>
     <div class="setgroup" id="cats-expense"></div>
@@ -362,7 +370,7 @@
 const KEY='jodngern_v1';
 const EMOJIS=['🍜','☕','🚌','🛒','🏠','💊','🎬','👕','📱','🎁','⛽','🐶','💡','✈️','🍺','💰','💵','💼','📈','🏦','🎓','🩺','🧾','✨'];
 const DEFAULT={
-  settings:{dailyBudget:500, cycleStart:1},
+  settings:{dailyBudget:500, cycleStart:1, cycleEnd:31},
   categories:[
     {id:'c1',name:'อาหาร',icon:'🍜',type:'expense'},
     {id:'c2',name:'กาแฟ',icon:'☕',type:'expense'},
@@ -391,8 +399,8 @@ load();
 /* ============ STATE ============ */
 let curType='expense';
 let selCat=null;
-let sumPeriod='cycle';
-let customOffset=0;
+let sumView='month', sumMonthBack=0, sumYear=new Date().getFullYear(), sumType='all', sumCat='all';
+let entryDate=null;
 
 /* ============ HELPERS ============ */
 const $=id=>document.getElementById(id);
@@ -404,16 +412,19 @@ function cat(id){return db.categories.find(c=>c.id===id);}
 
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800);}
 
+function clampDay(d){return Math.min(31,Math.max(1,d||1));}
 function cycleFor(back=0){
-  const cs=db.settings.cycleStart||1;
+  const cs=clampDay(db.settings.cycleStart||1);
+  const ce=db.settings.cycleEnd; // optional end day; if absent, end = day before next start
   const now=new Date(); now.setHours(0,0,0,0);
-  let y=now.getFullYear(), m=now.getMonth();
-  function startOn(yy,mm){const last=new Date(yy,mm+1,0).getDate();const d=Math.min(cs,last);return new Date(yy,mm,d);}
-  let s=startOn(y,m);
-  if(now<s){ m--; s=startOn(y,m); }
-  let sd=new Date(s); sd.setMonth(sd.getMonth()-back);
-  s=startOn(sd.getFullYear(),sd.getMonth());
-  let e=new Date(s); e.setMonth(e.getMonth()+1); e.setDate(e.getDate()-1);
+  function dayIn(yy,mm,d){const last=new Date(yy,mm+1,0).getDate();return new Date(yy,mm,Math.min(d,last));}
+  let s=dayIn(now.getFullYear(), now.getMonth(), cs);
+  if(now<s){ s=dayIn(now.getFullYear(), now.getMonth()-1, cs); }
+  s=dayIn(s.getFullYear(), s.getMonth()-back, cs);
+  let e;
+  if(ce){ const endMonth = clampDay(ce)>=cs ? s.getMonth() : s.getMonth()+1;
+    e=dayIn(s.getFullYear(), endMonth, clampDay(ce)); }
+  else { e=new Date(s); e.setMonth(e.getMonth()+1); e.setDate(e.getDate()-1); }
   return {start:iso(s),end:iso(e)};
 }
 function inRange(date,a,b){return date>=a&&date<=b;}
@@ -430,10 +441,16 @@ function calcStreak(){
 
 /* ============ ADD SCREEN ============ */
 function renderAdd(){
-  $('today').textContent=new Date().toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'});
+  const ed=entryDate||todayStr();
+  const isToday=ed===todayStr();
+  const dObj=new Date(ed+'T00:00');
+  $('today').innerHTML=dObj.toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'})
+    +' <span style="font-size:12px">▾</span>'+(isToday?'':' <span style="font-size:11px;background:var(--exp-bg);color:var(--exp-text);padding:1px 6px;border-radius:6px">ย้อนหลัง</span>');
+  $('today').style.color=isToday?'':'var(--exp)';
+  const di=$('entrydate-input'); if(di){di.value=ed; di.max=todayStr();}
   $('streak').textContent='🔥 '+calcStreak()+' วัน';
-  const t=todayStr();
-  const spent=db.entries.filter(e=>e.date===t&&e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  $('day-lbl').textContent=isToday?'วันนี้ใช้ไป':'ใช้ไป '+fmtDate(ed);
+  const spent=db.entries.filter(e=>e.date===ed&&e.type==='expense').reduce((s,e)=>s+e.amount,0);
   $('day-spent').textContent=baht(spent);
   const budget=db.settings.dailyBudget||0;
   if(budget>0){
@@ -451,6 +468,13 @@ function renderAdd(){
   renderQuick();
   renderRecent();
   updateSave();
+}
+
+function setEntryDate(v){ if(v){entryDate=v; renderAdd();} }
+function openDatePicker(){
+  const di=$('entrydate-input');
+  if(typeof di.showPicker==='function'){ try{ di.showPicker(); return; }catch(e){} }
+  di.style.pointerEvents='auto'; di.focus(); di.click();
 }
 
 function setType(t){
@@ -509,13 +533,17 @@ function save(){
   addEntry(amt,curType,selCat);
 }
 function addEntry(amount,type,categoryId){
-  db.entries.unshift({id:'e'+Date.now(),amount,type,categoryId,date:todayStr(),createdAt:Date.now()});
+  const ed=entryDate||todayStr();
+  db.entries.unshift({id:'e'+Date.now(),amount,type,categoryId,date:ed,createdAt:Date.now()});
+  // keep list sorted by date desc so backdated entries land in the right place
+  db.entries.sort((a,b)=> b.date===a.date ? b.createdAt-a.createdAt : (a.date<b.date?1:-1));
   persist();
   $('amount').value=''; selCat=null;
   renderAdd();
   const c=cat(categoryId);
-  const left=(db.settings.dailyBudget||0)- db.entries.filter(e=>e.date===todayStr()&&e.type==='expense').reduce((s,e)=>s+e.amount,0);
-  toast(`บันทึกแล้ว ${c.icon} ${baht(amount)}` + (type==='expense'&&db.settings.dailyBudget? ` · เหลือ ${baht(Math.max(0,left))}`:''));
+  const left=(db.settings.dailyBudget||0)- db.entries.filter(e=>e.date===ed&&e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  const dtag = ed===todayStr() ? '' : ' ('+fmtDate(ed)+')';
+  toast(`บันทึกแล้ว ${c.icon} ${baht(amount)}${dtag}` + (type==='expense'&&db.settings.dailyBudget? ` · เหลือ ${baht(Math.max(0,left))}`:''));
   checkBadgeUnlock();
 }
 function delEntry(id){
@@ -538,29 +566,39 @@ function renderRecent(){
 }
 
 /* ============ SUMMARY ============ */
-function setSumPeriod(p){
-  sumPeriod=p; customOffset=0;
-  document.querySelectorAll('#sum-seg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+function setSumView(v){ sumView=v; renderSummary(); }
+function setSumType(t){ sumType=t; sumCat='all'; renderSummary(); }
+function setSumCat(c){ sumCat=c; renderSummary(); }
+function shiftPeriod(dir){
+  if(sumView==='month'){ sumMonthBack=Math.max(0, sumMonthBack-dir); }
+  else { sumYear=Math.min(new Date().getFullYear(), sumYear+dir); }
   renderSummary();
 }
 function renderSummary(){
-  let r, label;
-  if(sumPeriod==='cycle'){r=cycleFor(0);}
-  else if(sumPeriod==='prev'){r=cycleFor(1);}
-  else {r=cycleFor(customOffset); }
-  label=fmtDate(r.start)+' – '+fmtDate(r.end);
-  const pr=$('period-lbl').parentElement;
-  pr.innerHTML='';
-  if(sumPeriod==='custom'){
-    const prev=document.createElement('button');prev.textContent='‹';prev.onclick=()=>{customOffset++;renderSummary();};
-    const next=document.createElement('button');next.textContent='›';next.onclick=()=>{if(customOffset>0){customOffset--;renderSummary();}};
-    const l=document.createElement('span');l.className='lbl';l.id='period-lbl';l.textContent=label;
-    pr.append(prev,l,next);
-  }else{
-    const l=document.createElement('span');l.className='lbl';l.id='period-lbl';l.textContent=label;
-    pr.append(l);
-  }
-  const ents=db.entries.filter(e=>inRange(e.date,r.start,r.end));
+  document.querySelectorAll('#view-seg button').forEach(b=>b.classList.toggle('on',b.dataset.v===sumView));
+  document.querySelectorAll('#type-seg button').forEach(b=>b.classList.toggle('on',b.dataset.t===sumType));
+
+  let r, label, canNext;
+  if(sumView==='month'){ r=cycleFor(sumMonthBack); label=fmtDate(r.start)+' – '+fmtDate(r.end); canNext=sumMonthBack>0; }
+  else { r={start:sumYear+'-01-01', end:sumYear+'-12-31'}; label='ปี '+sumYear; canNext=sumYear<new Date().getFullYear(); }
+
+  const nav=$('period-nav'); nav.innerHTML='';
+  const prev=document.createElement('button'); prev.textContent='‹'; prev.onclick=()=>shiftPeriod(-1);
+  const lbl=document.createElement('span'); lbl.className='lbl'; lbl.textContent=label;
+  const next=document.createElement('button'); next.textContent='›'; next.style.opacity=canNext?'1':'.25'; next.onclick=()=>{ if(canNext) shiftPeriod(1); };
+  nav.append(prev,lbl,next);
+
+  const sel=$('cat-filter');
+  let cats=db.categories.filter(c=>!c.hidden);
+  if(sumType!=='all') cats=cats.filter(c=>c.type===sumType);
+  if(sumCat!=='all' && !cats.some(c=>c.id===sumCat)) sumCat='all';
+  sel.innerHTML='<option value="all">ทุกหมวด</option>'+cats.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+  sel.value=sumCat;
+
+  let ents=db.entries.filter(e=>inRange(e.date,r.start,r.end));
+  if(sumType!=='all') ents=ents.filter(e=>e.type===sumType);
+  if(sumCat!=='all') ents=ents.filter(e=>e.categoryId===sumCat);
+
   const inc=ents.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
   const exp=ents.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
   $('sum-inc').textContent=baht(inc);
@@ -568,21 +606,46 @@ function renderSummary(){
   const bal=inc-exp;
   $('balance').textContent=(bal>=0?'':'-')+baht(Math.abs(bal));
   $('balance').style.color=bal>=0?'var(--inc)':'var(--exp)';
+
+  const bType = sumType==='income' ? 'income' : 'expense';
+  const bColor = bType==='income' ? 'var(--inc)' : 'var(--exp)';
+  $('break-title').textContent = (bType==='income'?'รายรับ':'รายจ่าย')+'แยกหมวด';
+  const bEnts=ents.filter(e=>e.type===bType);
+  const total=bEnts.reduce((s,e)=>s+e.amount,0);
   const byCat={};
-  ents.filter(e=>e.type==='expense').forEach(e=>{byCat[e.categoryId]=(byCat[e.categoryId]||0)+e.amount;});
+  bEnts.forEach(e=>{byCat[e.categoryId]=(byCat[e.categoryId]||0)+e.amount;});
   const arr=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
   const cb=$('catbreak');
-  if(!arr.length){cb.innerHTML='<div class="empty">ยังไม่มีรายจ่ายในรอบนี้</div>';return;}
-  cb.innerHTML='';
-  arr.forEach(([cid,amt])=>{
-    const c=cat(cid)||{icon:'•',name:'—'};
-    const pct=Math.round(amt/exp*100);
-    const row=document.createElement('div');row.className='catbar';
-    row.innerHTML=`<span class="e">${c.icon}</span><span class="nm">${c.name}</span>
-      <span class="track"><span style="width:${pct}%"></span></span>
-      <span class="pc">${baht(amt)}</span>`;
-    cb.appendChild(row);
-  });
+  if(!arr.length){ cb.innerHTML='<div class="empty">ไม่มีข้อมูลในช่วงนี้</div>'; }
+  else{
+    cb.innerHTML='';
+    arr.forEach(([cid,amt])=>{
+      const c=cat(cid)||{icon:'•',name:'—'};
+      const pct=total?Math.round(amt/total*100):0;
+      const row=document.createElement('div');row.className='catbar';
+      row.innerHTML=`<span class="e">${c.icon}</span><span class="nm">${c.name}</span>
+        <span class="track"><span style="width:${pct}%;background:${bColor}"></span></span>
+        <span class="pc">${baht(amt)}</span>`;
+      cb.appendChild(row);
+    });
+  }
+
+  const mb=$('monthbreak');
+  if(sumView==='year'){
+    const months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    const sums=new Array(12).fill(0);
+    bEnts.forEach(e=>{ const m=parseInt(e.date.slice(5,7),10)-1; sums[m]+=e.amount; });
+    const maxV=Math.max(...sums,1);
+    mb.innerHTML='<div class="sectitle" style="margin-top:18px">'+(bType==='income'?'รายรับ':'รายจ่าย')+'รายเดือน</div>';
+    months.forEach((mn,i)=>{
+      const pct=Math.round(sums[i]/maxV*100);
+      const row=document.createElement('div');row.className='catbar';
+      row.innerHTML=`<span class="nm" style="flex:0 0 44px">${mn}</span>
+        <span class="track"><span style="width:${pct}%;background:${bColor}"></span></span>
+        <span class="pc">${sums[i]?baht(sums[i]):'-'}</span>`;
+      mb.appendChild(row);
+    });
+  } else { mb.innerHTML=''; }
 }
 
 /* ============ GOALS ============ */
@@ -667,6 +730,7 @@ function checkBadgeUnlock(){
 function renderSettings(){
   $('set-daily').value=db.settings.dailyBudget||'';
   $('set-cycle').value=db.settings.cycleStart||1;
+  $('set-cycle-end').value=db.settings.cycleEnd|| (((db.settings.cycleStart||1)>1)?(db.settings.cycleStart-1):31);
   ['expense','income'].forEach(type=>{
     const box=$('cats-'+type);box.innerHTML='';
     db.categories.filter(c=>c.type===type&&!c.hidden).forEach(c=>{
@@ -693,8 +757,10 @@ function renderSettings(){
 }
 function saveSettings(){
   db.settings.dailyBudget=parseInt($('set-daily').value,10)||0;
-  let cs=parseInt($('set-cycle').value,10)||1; cs=Math.min(31,Math.max(1,cs));
+  let cs=clampDay(parseInt($('set-cycle').value,10)||1);
+  let ce=clampDay(parseInt($('set-cycle-end').value,10)|| (cs>1?cs-1:31));
   db.settings.cycleStart=cs; $('set-cycle').value=cs;
+  db.settings.cycleEnd=ce; $('set-cycle-end').value=ce;
   persist(); toast('บันทึกการตั้งค่าแล้ว');
 }
 function delCat(id){
@@ -785,7 +851,7 @@ function go(s){
   $('s-'+s).classList.add('active');
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));
   window.scrollTo(0,0);
-  if(s==='add')renderAdd();
+  if(s==='add'){entryDate=todayStr(); renderAdd();}
   if(s==='summary')renderSummary();
   if(s==='goals')renderGoals();
   if(s==='settings')renderSettings();
