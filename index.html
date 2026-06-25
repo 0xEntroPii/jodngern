@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#ffffff" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="จดเงิน" />
+<title>จดเงิน</title>
+
+<!-- Inline Manifest via blob (works when opened as file://) -->
+<script>
+(function(){
+  const manifest = {
+    name: "จดเงิน",
+    short_name: "จดเงิน",
+    description: "แอปจดรายรับ-รายจ่ายส่วนตัว",
+    start_url: ".",
+    display: "standalone",
+    background_color: "#f4f4f2",
+    theme_color: "#1c1c1a",
+    orientation: "portrait",
+    icons: [
+      { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%231c1c1a'/%3E%3Ctext x='96' y='130' font-size='100' text-anchor='middle'%3E💰%3C/text%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" },
+      { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%231c1c1a'/%3E%3Ctext x='256' y='360' font-size='280' text-anchor='middle'%3E💰%3C/text%3E%3C/svg%3E", sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest'; link.href = url;
+  document.currentScript.after(link);
+})();
+</script>
+
+<!-- Apple Touch Icon (inline SVG as data URI) -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='36' fill='%231c1c1a'/%3E%3Ctext x='90' y='125' font-size='96' text-anchor='middle'%3E💰%3C/text%3E%3C/svg%3E" />
+
+<style>
+  :root{
+    --bg:#f4f4f2; --surface:#ffffff; --line:rgba(0,0,0,.08); --line2:rgba(0,0,0,.14);
+    --text:#1c1c1a; --muted:#6b6b66; --hint:#9b9b95;
+    --exp:#d85a30; --exp-bg:#faece7; --exp-text:#993c1d;
+    --inc:#1d9e75; --inc-bg:#e1f5ee; --inc-text:#0f6e56;
+    --accent:#1c1c1a; --warn:#ba7517; --warn-bg:#faeeda;
+    --radius:14px; --radius-sm:10px;
+    --safe-b:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Sukhumvit Set","Helvetica Neue",sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{max-width:480px; margin:0 auto; min-height:100vh; padding-bottom:calc(72px + var(--safe-b)); position:relative}
+  .screen{display:none; padding:16px 16px 8px}
+  .screen.active{display:block}
+  h1,h2,h3{font-weight:600; margin:0}
+  .muted{color:var(--muted)} .hint{color:var(--hint)}
+  button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit}
+  input,select{font-family:inherit; font-size:16px}
+
+  /* top bar */
+  .topbar{display:flex; align-items:center; justify-content:space-between; padding:6px 2px 14px}
+  .streak{display:flex; align-items:center; gap:6px; background:var(--warn-bg); color:var(--warn);
+    padding:5px 11px; border-radius:999px; font-size:14px; font-weight:600}
+  .date{font-size:13px; color:var(--muted)}
+  .iconbtn{width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    font-size:18px; color:var(--muted)}
+  .iconbtn:active{background:rgba(0,0,0,.05)}
+
+  /* daily summary */
+  .daycard{background:var(--surface); border:.5px solid var(--line); border-radius:var(--radius);
+    padding:16px; text-align:center; margin-bottom:14px}
+  .daycard .lbl{font-size:13px; color:var(--muted)}
+  .daycard .amt{font-size:30px; font-weight:700; letter-spacing:-.5px; margin:2px 0}
+  .budgetbar{height:7px; background:var(--bg); border-radius:99px; overflow:hidden; margin:10px 4px 6px}
+  .budgetbar > span{display:block; height:100%; background:var(--inc); border-radius:99px; transition:width .3s,background .3s}
+  .budget-note{font-size:13px}
+
+  /* type toggle */
+  .toggle{display:flex; background:var(--bg); border-radius:12px; padding:4px; gap:4px; margin-bottom:14px}
+  .toggle button{flex:1; padding:9px; border-radius:9px; font-size:15px; font-weight:600; color:var(--muted)}
+  .toggle button.on[data-t="expense"]{background:var(--exp); color:#fff}
+  .toggle button.on[data-t="income"]{background:var(--inc); color:#fff}
+
+  /* amount input */
+  .amountwrap{text-align:center; padding:8px 0 6px}
+  .amountwrap .cur{font-size:34px; font-weight:600; color:var(--hint); vertical-align:6px}
+  .amountin{font-size:54px; font-weight:700; letter-spacing:-1px; border:none; outline:none; background:none;
+    text-align:center; width:100%; padding:0; color:var(--text)}
+  .amountin::placeholder{color:#d8d8d2}
+
+  /* categories */
+  .catgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:10px 0 4px}
+  .cat{display:flex; flex-direction:column; align-items:center; gap:5px}
+  .cat .ic{width:100%; aspect-ratio:1; background:var(--surface); border:.5px solid var(--line);
+    border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; font-size:24px}
+  .cat.sel .ic{border-color:var(--accent); border-width:2px; background:#fff}
+  .cat .nm{font-size:11px; color:var(--muted); text-align:center; line-height:1.2}
+  .cat.sel .nm{color:var(--text); font-weight:600}
+  .cat .ic.add{border-style:dashed; color:var(--muted)}
+
+  /* quick add */
+  .qa-title{font-size:12px; color:var(--hint); margin:14px 4px 8px; font-weight:600}
+  .qarow{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch}
+  .qarow::-webkit-scrollbar{display:none}
+  .qchip{flex:0 0 auto; display:flex; align-items:center; gap:6px; background:var(--surface);
+    border:.5px solid var(--line2); border-radius:999px; padding:8px 14px; font-size:14px; font-weight:500}
+  .qchip:active{background:var(--bg)}
+  .qchip .e{font-size:16px}
+
+  /* save button */
+  .savebtn{width:100%; padding:16px; border-radius:var(--radius); background:var(--accent); color:#fff;
+    font-size:16px; font-weight:600; margin-top:18px; display:flex; align-items:center; justify-content:center; gap:8px}
+  .savebtn:disabled{opacity:.4}
+  .savebtn.exp{background:var(--exp)} .savebtn.inc{background:var(--inc)}
+
+  /* recent */
+  .reclist{margin-top:20px}
+  .rec-h{font-size:12px; color:var(--hint); font-weight:600; margin:0 4px 8px}
+  .rec{display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:.5px solid var(--line)}
+  .rec .e{width:38px; height:38px; border-radius:10px; background:var(--bg); display:flex; align-items:center; justify-content:center; font-size:19px; flex:0 0 auto}
+  .rec .mid{flex:1; min-width:0}
+  .rec .nm{font-size:15px; font-weight:500}
+  .rec .sub{font-size:12px; color:var(--hint)}
+  .rec .val{font-size:16px; font-weight:600}
+  .rec .val.exp{color:var(--exp)} .rec .val.inc{color:var(--inc)}
+  .rec .del{color:var(--hint); font-size:17px; padding:6px}
+
+  /* summary screen */
+  .seg{display:flex; background:var(--bg); border-radius:11px; padding:3px; gap:3px; margin-bottom:16px}
+  .seg button{flex:1; padding:8px; border-radius:8px; font-size:13px; font-weight:600; color:var(--muted)}
+  .seg button.on{background:var(--surface); color:var(--text); box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .period-row{display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:14px}
+  .period-row button{font-size:20px; color:var(--muted); padding:4px 8px}
+  .period-row .lbl{font-size:14px; font-weight:600; min-width:150px; text-align:center}
+  .twocard{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px}
+  .statcard{background:var(--surface); border:.5px solid var(--line); border-radius:var(--radius); padding:14px}
+  .statcard .l{font-size:12px; color:var(--muted)}
+  .statcard .v{font-size:22px; font-weight:700; margin-top:3px}
+  .statcard .v.exp{color:var(--exp)} .statcard .v.inc{color:var(--inc)}
+  .balcard{background:var(--surface); border:.5px solid var(--line); border-radius:var(--radius); padding:16px; text-align:center; margin-bottom:16px}
+  .catbar{display:flex; align-items:center; gap:10px; padding:9px 2px}
+  .catbar .e{font-size:18px; width:26px; text-align:center}
+  .catbar .nm{font-size:14px; flex:0 0 84px}
+  .catbar .track{flex:1; height:8px; background:var(--bg); border-radius:99px; overflow:hidden}
+  .catbar .track > span{display:block; height:100%; background:var(--exp); border-radius:99px}
+  .catbar .pc{font-size:13px; font-weight:600; flex:0 0 64px; text-align:right}
+
+  /* goals */
+  .goal{background:var(--surface); border:.5px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:12px}
+  .goal .top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px}
+  .goal .nm{font-size:16px; font-weight:600}
+  .goal .pc{font-size:14px; font-weight:600; color:var(--inc)}
+  .goal .track{height:9px; background:var(--bg); border-radius:99px; overflow:hidden; margin-bottom:8px}
+  .goal .track > span{display:block; height:100%; background:var(--inc); border-radius:99px}
+  .goal .sub{font-size:13px; color:var(--muted)}
+  .goal .acts{display:flex; gap:8px; margin-top:12px}
+  .goal .acts button{flex:1; padding:9px; border:.5px solid var(--line2); border-radius:9px; font-size:13px; font-weight:600; color:var(--muted)}
+
+  /* badges */
+  .badgegrid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+  .badge{background:var(--surface); border:.5px solid var(--line); border-radius:var(--radius); padding:14px 8px; text-align:center}
+  .badge.locked{opacity:.4}
+  .badge .e{font-size:28px}
+  .badge .nm{font-size:11px; margin-top:6px; font-weight:600; line-height:1.25}
+
+  /* settings */
+  .setgroup{background:var(--surface); border:.5px solid var(--line); border-radius:var(--radius); margin-bottom:16px; overflow:hidden}
+  .setrow{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:.5px solid var(--line)}
+  .setrow:last-child{border-bottom:none}
+  .setrow .l{font-size:15px}
+  .setrow input[type=number]{width:90px; text-align:right; border:none; background:none; font-size:16px; font-weight:600; color:var(--text); outline:none}
+  .catedit{display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:.5px solid var(--line)}
+  .catedit:last-child{border-bottom:none}
+  .catedit .e{font-size:22px; width:30px; text-align:center}
+  .catedit .nm{flex:1; font-size:15px}
+  .catedit .x{color:var(--hint); font-size:18px; padding:6px}
+  .addcatbtn{width:100%; padding:14px; text-align:center; font-size:14px; font-weight:600; color:var(--muted); border-top:.5px solid var(--line)}
+  .sectitle{font-size:13px; color:var(--hint); font-weight:600; margin:0 4px 10px; text-transform:none}
+
+  /* bottom nav */
+  .nav{position:fixed; bottom:0; left:0; right:0; max-width:480px; margin:0 auto; background:var(--surface);
+    border-top:.5px solid var(--line); display:flex; padding:8px 0 calc(8px + var(--safe-b)); z-index:50}
+  .nav button{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--hint); font-size:11px}
+  .nav button.on{color:var(--accent)}
+  .nav .ic{font-size:21px}
+
+  /* modal / sheet */
+  .sheet-bg{position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:100; display:none; align-items:flex-end}
+  .sheet-bg.open{display:flex}
+  .sheet{background:var(--surface); width:100%; max-width:480px; margin:0 auto; border-radius:20px 20px 0 0;
+    padding:20px 18px calc(20px + var(--safe-b)); animation:up .25s ease}
+  @keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .sheet h3{font-size:17px; margin-bottom:16px}
+  .field{margin-bottom:14px}
+  .field label{font-size:13px; color:var(--muted); display:block; margin-bottom:6px}
+  .field input{width:100%; padding:12px; border:.5px solid var(--line2); border-radius:10px; background:var(--bg); outline:none}
+  .emojipick{display:grid; grid-template-columns:repeat(8,1fr); gap:6px; margin-top:6px}
+  .emojipick button{font-size:22px; padding:7px 0; border-radius:8px}
+  .emojipick button.on{background:var(--bg); outline:2px solid var(--accent)}
+  .sheet .primary{width:100%; padding:14px; background:var(--accent); color:#fff; border-radius:11px; font-size:15px; font-weight:600; margin-top:6px}
+
+  /* toast */
+  .toast{position:fixed; bottom:calc(90px + var(--safe-b)); left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--accent); color:#fff; padding:11px 18px; border-radius:999px; font-size:14px; font-weight:500;
+    opacity:0; pointer-events:none; transition:.3s; z-index:200; white-space:nowrap}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  .empty{text-align:center; color:var(--hint); font-size:14px; padding:30px 0}
+
+  /* install banner */
+  #install-banner{display:none; position:fixed; top:0; left:0; right:0; z-index:300;
+    background:#1c1c1a; color:#fff; padding:12px 16px calc(12px + env(safe-area-inset-top,0px)) 16px;
+    flex-direction:column; gap:6px; max-width:480px; margin:0 auto}
+  #install-banner.show{display:flex}
+  #install-banner .b-title{font-size:14px; font-weight:600}
+  #install-banner .b-sub{font-size:12px; opacity:.7}
+  #install-banner .b-row{display:flex; gap:8px; margin-top:4px}
+  #install-banner .b-btn{flex:1; padding:9px; border-radius:9px; font-size:13px; font-weight:600; text-align:center; cursor:pointer}
+  #install-banner .b-install{background:#1d9e75; color:#fff}
+  #install-banner .b-close{background:rgba(255,255,255,.12); color:#fff}
+</style>
+</head>
+<body>
+
+<!-- Install Banner (Android Chrome) -->
+<div id="install-banner">
+  <div class="b-title">💰 ติดตั้งจดเงินเป็นแอป</div>
+  <div class="b-sub">ใช้งานแบบออฟไลน์ ไม่ต้องเปิด browser</div>
+  <div class="b-row">
+    <div class="b-btn b-install" id="btn-install">ติดตั้ง</div>
+    <div class="b-btn b-close" id="btn-close-banner">ปิด</div>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- ===== ADD SCREEN ===== -->
+  <section class="screen active" id="s-add">
+    <div class="topbar">
+      <div class="streak" id="streak">🔥 0 วัน</div>
+      <div class="date" id="today"></div>
+      <button class="iconbtn" onclick="go('summary')">📊</button>
+    </div>
+
+    <div class="daycard">
+      <div class="lbl">วันนี้ใช้ไป</div>
+      <div class="amt" id="day-spent">฿0</div>
+      <div class="budgetbar"><span id="day-bar"></span></div>
+      <div class="budget-note muted" id="day-note">ยังไม่ได้ตั้งงบรายวัน</div>
+    </div>
+
+    <div class="toggle" id="type-toggle">
+      <button data-t="expense" class="on" onclick="setType('expense')">รายจ่าย</button>
+      <button data-t="income" onclick="setType('income')">รายรับ</button>
+    </div>
+
+    <div class="amountwrap">
+      <span class="cur">฿</span>
+      <input class="amountin" id="amount" inputmode="numeric" placeholder="0" oninput="onAmount()" />
+    </div>
+
+    <div class="catgrid" id="catgrid"></div>
+
+    <div class="qa-title" id="qa-title">รายการด่วน</div>
+    <div class="qarow" id="qarow"></div>
+
+    <button class="savebtn exp" id="savebtn" disabled onclick="save()">
+      <span>＋</span><span id="save-label">เลือกหมวด</span>
+    </button>
+
+    <div class="reclist">
+      <div class="rec-h">รายการล่าสุด</div>
+      <div id="reclist"></div>
+    </div>
+  </section>
+
+  <!-- ===== SUMMARY SCREEN ===== -->
+  <section class="screen" id="s-summary">
+    <h1 style="margin:6px 4px 16px;font-size:22px">สรุป</h1>
+    <div class="seg" id="sum-seg">
+      <button class="on" data-p="cycle" onclick="setSumPeriod('cycle')">รอบนี้</button>
+      <button data-p="prev" onclick="setSumPeriod('prev')">รอบที่แล้ว</button>
+      <button data-p="custom" onclick="setSumPeriod('custom')">กำหนดเอง</button>
+    </div>
+    <div class="period-row">
+      <span class="lbl" id="period-lbl"></span>
+    </div>
+    <div class="balcard">
+      <div class="lbl muted">คงเหลือรอบนี้ (รับ − จ่าย)</div>
+      <div class="amt" id="balance" style="font-size:30px;font-weight:700;margin-top:4px"></div>
+    </div>
+    <div class="twocard">
+      <div class="statcard"><div class="l">รายรับ</div><div class="v inc" id="sum-inc">฿0</div></div>
+      <div class="statcard"><div class="l">รายจ่าย</div><div class="v exp" id="sum-exp">฿0</div></div>
+    </div>
+    <div class="sectitle">รายจ่ายแยกหมวด</div>
+    <div id="catbreak"></div>
+  </section>
+
+  <!-- ===== GOALS SCREEN ===== -->
+  <section class="screen" id="s-goals">
+    <h1 style="margin:6px 4px 16px;font-size:22px">เป้าหมาย</h1>
+    <div id="goallist"></div>
+    <button class="addcatbtn" style="border:.5px dashed var(--line2);border-radius:var(--radius);background:var(--surface)" onclick="openGoalSheet()">＋ เพิ่มเป้าหมาย</button>
+    <div class="sectitle" style="margin-top:24px">แบดจ</div>
+    <div class="badgegrid" id="badgegrid"></div>
+  </section>
+
+  <!-- ===== SETTINGS SCREEN ===== -->
+  <section class="screen" id="s-settings">
+    <h1 style="margin:6px 4px 16px;font-size:22px">ตั้งค่า</h1>
+
+    <div class="sectitle">งบและรอบ</div>
+    <div class="setgroup">
+      <div class="setrow"><span class="l">งบรายวัน (฿)</span><input type="number" id="set-daily" inputmode="numeric" onchange="saveSettings()" /></div>
+      <div class="setrow"><span class="l">วันเริ่มรอบงบ</span><input type="number" id="set-cycle" inputmode="numeric" min="1" max="31" onchange="saveSettings()" /></div>
+    </div>
+    <p class="hint" style="font-size:12px;margin:-8px 4px 18px">เช่น เงินเดือนออกวันที่ 25 → ตั้ง 25 แล้วรอบจะเป็น 25 ถึง 24 เดือนถัดไป</p>
+
+    <div class="sectitle">หมวดรายจ่าย</div>
+    <div class="setgroup" id="cats-expense"></div>
+    <div class="sectitle">หมวดรายรับ</div>
+    <div class="setgroup" id="cats-income"></div>
+
+    <div class="sectitle">รายการด่วน (Quick-add)</div>
+    <div class="setgroup" id="qa-list"></div>
+
+    <div class="sectitle">สำรองข้อมูล</div>
+    <div class="setgroup">
+      <div class="setrow" onclick="exportData()" style="cursor:pointer"><span class="l">⬇️ ดาวน์โหลดไฟล์สำรอง (.json)</span><span class="muted" style="font-size:18px">›</span></div>
+      <div class="setrow" onclick="document.getElementById('importfile').click()" style="cursor:pointer"><span class="l">⬆️ กู้คืนจากไฟล์สำรอง</span><span class="muted" style="font-size:18px">›</span></div>
+    </div>
+    <p class="hint" style="font-size:12px;margin:-8px 4px 18px">แนะนำให้ดาวน์โหลดสำรองไว้เป็นระยะ — กันข้อมูลหายเวลาเคลียร์ browser หรือย้ายเครื่อง</p>
+    <input type="file" id="importfile" accept="application/json,.json" style="display:none" onchange="importData(event)" />
+
+    <div style="text-align:center;padding:20px 0 10px">
+      <button onclick="resetAll()" style="color:var(--exp);font-size:13px">ล้างข้อมูลทั้งหมด</button>
+    </div>
+  </section>
+
+  <!-- ===== NAV ===== -->
+  <nav class="nav">
+    <button class="on" data-s="add" onclick="go('add')"><span class="ic">✏️</span>จด</button>
+    <button data-s="summary" onclick="go('summary')"><span class="ic">📊</span>สรุป</button>
+    <button data-s="goals" onclick="go('goals')"><span class="ic">🎯</span>เป้าหมาย</button>
+    <button data-s="settings" onclick="go('settings')"><span class="ic">⚙️</span>ตั้งค่า</button>
+  </nav>
+</div>
+
+<div class="sheet-bg" id="sheet-bg" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet" id="sheet"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ STORAGE ============ */
+const KEY='jodngern_v1';
+const EMOJIS=['🍜','☕','🚌','🛒','🏠','💊','🎬','👕','📱','🎁','⛽','🐶','💡','✈️','🍺','💰','💵','💼','📈','🏦','🎓','🩺','🧾','✨'];
+const DEFAULT={
+  settings:{dailyBudget:500, cycleStart:1},
+  categories:[
+    {id:'c1',name:'อาหาร',icon:'🍜',type:'expense'},
+    {id:'c2',name:'กาแฟ',icon:'☕',type:'expense'},
+    {id:'c3',name:'เดินทาง',icon:'🚌',type:'expense'},
+    {id:'c4',name:'ช้อปปิ้ง',icon:'🛒',type:'expense'},
+    {id:'c5',name:'บิล/ค่าบ้าน',icon:'🏠',type:'expense'},
+    {id:'c6',name:'บันเทิง',icon:'🎬',type:'expense'},
+    {id:'c7',name:'สุขภาพ',icon:'💊',type:'expense'},
+    {id:'i1',name:'เงินเดือน',icon:'💼',type:'income'},
+    {id:'i2',name:'ฟรีแลนซ์',icon:'💰',type:'income'},
+    {id:'i3',name:'อื่นๆ',icon:'💵',type:'income'},
+  ],
+  quickAdds:[
+    {id:'q1',label:'กาแฟ',amount:60,categoryId:'c2'},
+    {id:'q2',label:'ข้าว',amount:50,categoryId:'c1'},
+    {id:'q3',label:'วินมอไซค์',amount:20,categoryId:'c3'},
+  ],
+  entries:[],
+  goals:[{id:'g1',name:'เงินเก็บฉุกเฉิน',target:10000,saved:0}],
+};
+let db;
+function load(){ try{db=JSON.parse(localStorage.getItem(KEY))||structuredClone(DEFAULT);}catch(e){db=structuredClone(DEFAULT);} }
+function persist(){ localStorage.setItem(KEY,JSON.stringify(db)); }
+load();
+
+/* ============ STATE ============ */
+let curType='expense';
+let selCat=null;
+let sumPeriod='cycle';
+let customOffset=0;
+
+/* ============ HELPERS ============ */
+const $=id=>document.getElementById(id);
+const baht=n=>'฿'+Math.round(n).toLocaleString('th-TH');
+function iso(d){const z=new Date(d);z.setMinutes(z.getMinutes()-z.getTimezoneOffset());return z.toISOString().slice(0,10);}
+const todayStr=()=>iso(new Date());
+function fmtDate(iso){const d=new Date(iso+'T00:00');return d.toLocaleDateString('th-TH',{day:'numeric',month:'short'});}
+function cat(id){return db.categories.find(c=>c.id===id);}
+
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800);}
+
+function cycleFor(back=0){
+  const cs=db.settings.cycleStart||1;
+  const now=new Date(); now.setHours(0,0,0,0);
+  let y=now.getFullYear(), m=now.getMonth();
+  function startOn(yy,mm){const last=new Date(yy,mm+1,0).getDate();const d=Math.min(cs,last);return new Date(yy,mm,d);}
+  let s=startOn(y,m);
+  if(now<s){ m--; s=startOn(y,m); }
+  let sd=new Date(s); sd.setMonth(sd.getMonth()-back);
+  s=startOn(sd.getFullYear(),sd.getMonth());
+  let e=new Date(s); e.setMonth(e.getMonth()+1); e.setDate(e.getDate()-1);
+  return {start:iso(s),end:iso(e)};
+}
+function inRange(date,a,b){return date>=a&&date<=b;}
+
+/* ============ STREAK ============ */
+function calcStreak(){
+  const days=new Set(db.entries.map(e=>e.date));
+  if(!days.size)return 0;
+  let streak=0; let d=new Date(); d.setHours(0,0,0,0);
+  if(!days.has(iso(d))) d.setDate(d.getDate()-1);
+  while(days.has(iso(d))){streak++; d.setDate(d.getDate()-1);}
+  return streak;
+}
+
+/* ============ ADD SCREEN ============ */
+function renderAdd(){
+  $('today').textContent=new Date().toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'});
+  $('streak').textContent='🔥 '+calcStreak()+' วัน';
+  const t=todayStr();
+  const spent=db.entries.filter(e=>e.date===t&&e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  $('day-spent').textContent=baht(spent);
+  const budget=db.settings.dailyBudget||0;
+  if(budget>0){
+    const pct=Math.min(100,spent/budget*100);
+    const bar=$('day-bar'); bar.style.width=pct+'%';
+    bar.style.background= spent>budget?'var(--exp)': pct>80?'var(--warn)':'var(--inc)';
+    const left=budget-spent;
+    $('day-note').innerHTML= left>=0
+      ? 'เหลืองบวันนี้ <b>'+baht(left)+'</b> จาก '+baht(budget)
+      : '<span style="color:var(--exp)">เกินงบ '+baht(-left)+'</span>';
+  }else{
+    $('day-bar').style.width='0%'; $('day-note').textContent='ยังไม่ได้ตั้งงบรายวัน (ไปที่ตั้งค่า)';
+  }
+  renderCats();
+  renderQuick();
+  renderRecent();
+  updateSave();
+}
+
+function setType(t){
+  curType=t; selCat=null;
+  document.querySelectorAll('#type-toggle button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  renderCats(); renderQuick(); updateSave();
+}
+
+function renderCats(){
+  const grid=$('catgrid'); grid.innerHTML='';
+  db.categories.filter(c=>c.type===curType&&!c.hidden).forEach(c=>{
+    const el=document.createElement('div');
+    el.className='cat'+(selCat===c.id?' sel':'');
+    el.innerHTML=`<div class="ic">${c.icon}</div><div class="nm">${c.name}</div>`;
+    el.onclick=()=>{selCat=c.id; renderCats(); updateSave();};
+    grid.appendChild(el);
+  });
+  const add=document.createElement('div');
+  add.className='cat';
+  add.innerHTML=`<div class="ic add">＋</div><div class="nm">เพิ่ม</div>`;
+  add.onclick=()=>openCatSheet(curType);
+  grid.appendChild(add);
+}
+
+function renderQuick(){
+  const row=$('qarow'); row.innerHTML='';
+  const qs=db.quickAdds.filter(q=>{const c=cat(q.categoryId);return c&&c.type===curType;});
+  $('qa-title').style.display=qs.length?'block':'none';
+  qs.forEach(q=>{
+    const c=cat(q.categoryId);
+    const chip=document.createElement('button');
+    chip.className='qchip';
+    chip.innerHTML=`<span class="e">${c?c.icon:'•'}</span>${q.label} ${baht(q.amount)}`;
+    chip.onclick=()=>{ addEntry(q.amount,curType,q.categoryId); };
+    row.appendChild(chip);
+  });
+}
+
+function onAmount(){
+  let v=$('amount').value.replace(/[^0-9]/g,'');
+  $('amount').value=v;
+  updateSave();
+}
+function updateSave(){
+  const amt=parseInt($('amount').value||'0',10);
+  const btn=$('savebtn'); const lbl=$('save-label');
+  btn.className='savebtn '+(curType==='expense'?'exp':'inc');
+  if(!amt){btn.disabled=true; lbl.textContent='ใส่จำนวนเงิน'; return;}
+  if(!selCat){btn.disabled=true; lbl.textContent='เลือกหมวด'; return;}
+  btn.disabled=false;
+  lbl.textContent=`บันทึก ${cat(selCat).name} ${baht(amt)}`;
+}
+function save(){
+  const amt=parseInt($('amount').value||'0',10);
+  if(!amt||!selCat)return;
+  addEntry(amt,curType,selCat);
+}
+function addEntry(amount,type,categoryId){
+  db.entries.unshift({id:'e'+Date.now(),amount,type,categoryId,date:todayStr(),createdAt:Date.now()});
+  persist();
+  $('amount').value=''; selCat=null;
+  renderAdd();
+  const c=cat(categoryId);
+  const left=(db.settings.dailyBudget||0)- db.entries.filter(e=>e.date===todayStr()&&e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  toast(`บันทึกแล้ว ${c.icon} ${baht(amount)}` + (type==='expense'&&db.settings.dailyBudget? ` · เหลือ ${baht(Math.max(0,left))}`:''));
+  checkBadgeUnlock();
+}
+function delEntry(id){
+  db.entries=db.entries.filter(e=>e.id!==id); persist(); renderAdd();
+}
+function renderRecent(){
+  const list=$('reclist'); const recent=db.entries.slice(0,8);
+  if(!recent.length){list.innerHTML='<div class="empty">ยังไม่มีรายการ — เริ่มจดเลย!</div>';return;}
+  list.innerHTML='';
+  recent.forEach(e=>{
+    const c=cat(e.categoryId)||{icon:'•',name:'—'};
+    const row=document.createElement('div'); row.className='rec';
+    row.innerHTML=`<div class="e">${c.icon}</div>
+      <div class="mid"><div class="nm">${c.name}</div><div class="sub">${fmtDate(e.date)}</div></div>
+      <div class="val ${e.type}">${e.type==='expense'?'-':'+'}${baht(e.amount)}</div>
+      <button class="del">✕</button>`;
+    row.querySelector('.del').onclick=()=>delEntry(e.id);
+    list.appendChild(row);
+  });
+}
+
+/* ============ SUMMARY ============ */
+function setSumPeriod(p){
+  sumPeriod=p; customOffset=0;
+  document.querySelectorAll('#sum-seg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  renderSummary();
+}
+function renderSummary(){
+  let r, label;
+  if(sumPeriod==='cycle'){r=cycleFor(0);}
+  else if(sumPeriod==='prev'){r=cycleFor(1);}
+  else {r=cycleFor(customOffset); }
+  label=fmtDate(r.start)+' – '+fmtDate(r.end);
+  const pr=$('period-lbl').parentElement;
+  pr.innerHTML='';
+  if(sumPeriod==='custom'){
+    const prev=document.createElement('button');prev.textContent='‹';prev.onclick=()=>{customOffset++;renderSummary();};
+    const next=document.createElement('button');next.textContent='›';next.onclick=()=>{if(customOffset>0){customOffset--;renderSummary();}};
+    const l=document.createElement('span');l.className='lbl';l.id='period-lbl';l.textContent=label;
+    pr.append(prev,l,next);
+  }else{
+    const l=document.createElement('span');l.className='lbl';l.id='period-lbl';l.textContent=label;
+    pr.append(l);
+  }
+  const ents=db.entries.filter(e=>inRange(e.date,r.start,r.end));
+  const inc=ents.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const exp=ents.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  $('sum-inc').textContent=baht(inc);
+  $('sum-exp').textContent=baht(exp);
+  const bal=inc-exp;
+  $('balance').textContent=(bal>=0?'':'-')+baht(Math.abs(bal));
+  $('balance').style.color=bal>=0?'var(--inc)':'var(--exp)';
+  const byCat={};
+  ents.filter(e=>e.type==='expense').forEach(e=>{byCat[e.categoryId]=(byCat[e.categoryId]||0)+e.amount;});
+  const arr=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const cb=$('catbreak');
+  if(!arr.length){cb.innerHTML='<div class="empty">ยังไม่มีรายจ่ายในรอบนี้</div>';return;}
+  cb.innerHTML='';
+  arr.forEach(([cid,amt])=>{
+    const c=cat(cid)||{icon:'•',name:'—'};
+    const pct=Math.round(amt/exp*100);
+    const row=document.createElement('div');row.className='catbar';
+    row.innerHTML=`<span class="e">${c.icon}</span><span class="nm">${c.name}</span>
+      <span class="track"><span style="width:${pct}%"></span></span>
+      <span class="pc">${baht(amt)}</span>`;
+    cb.appendChild(row);
+  });
+}
+
+/* ============ GOALS ============ */
+function renderGoals(){
+  const list=$('goallist'); list.innerHTML='';
+  if(!db.goals.length){list.innerHTML='<div class="empty">ยังไม่มีเป้าหมาย</div>';}
+  db.goals.forEach(g=>{
+    const pct=Math.min(100,Math.round(g.saved/g.target*100));
+    const el=document.createElement('div');el.className='goal';
+    el.innerHTML=`<div class="top"><span class="nm">${g.name}</span><span class="pc">${pct}%</span></div>
+      <div class="track"><span style="width:${pct}%"></span></div>
+      <div class="sub">${baht(g.saved)} / ${baht(g.target)}</div>
+      <div class="acts"><button data-a="add">＋ เพิ่มเงินเก็บ</button><button data-a="del">ลบ</button></div>`;
+    el.querySelector('[data-a=add]').onclick=()=>{
+      const v=prompt('เพิ่มเงินเก็บเข้าเป้านี้ (฿)','');
+      const n=parseInt(v,10); if(n>0){g.saved+=n;persist();renderGoals();checkBadgeUnlock();toast('เก็บเงินเพิ่มแล้ว '+baht(n));}
+    };
+    el.querySelector('[data-a=del]').onclick=()=>{if(confirm('ลบเป้าหมายนี้?')){db.goals=db.goals.filter(x=>x.id!==g.id);persist();renderGoals();}};
+    list.appendChild(el);
+  });
+  renderBadges();
+}
+function openGoalSheet(){
+  $('sheet').innerHTML=`<h3>เพิ่มเป้าหมาย</h3>
+    <div class="field"><label>ชื่อเป้าหมาย</label><input id="g-name" placeholder="เช่น เที่ยวญี่ปุ่น"/></div>
+    <div class="field"><label>จำนวนเงินเป้าหมาย (฿)</label><input id="g-target" inputmode="numeric" placeholder="10000"/></div>
+    <button class="primary" onclick="addGoal()">บันทึกเป้าหมาย</button>`;
+  openSheet();
+  setTimeout(()=>$('g-name').focus(),100);
+}
+function addGoal(){
+  const name=$('g-name').value.trim(); const target=parseInt($('g-target').value,10);
+  if(!name||!target){toast('กรอกชื่อและจำนวนเงิน');return;}
+  db.goals.push({id:'g'+Date.now(),name,target,saved:0}); persist(); closeSheet(); renderGoals();
+}
+
+/* ============ BADGES ============ */
+const BADGES=[
+  {id:'b1',e:'🌱',name:'จดวันแรก',test:()=>db.entries.length>=1},
+  {id:'b2',e:'🔥',name:'จดครบ 7 วัน',test:()=>calcStreak()>=7||maxStreak()>=7},
+  {id:'b3',e:'⚡',name:'จดครบ 30 วัน',test:()=>maxStreak()>=30},
+  {id:'b4',e:'💎',name:'จด 100 รายการ',test:()=>db.entries.length>=100},
+  {id:'b5',e:'🎯',name:'ทำเป้าสำเร็จ',test:()=>db.goals.some(g=>g.saved>=g.target)},
+  {id:'b6',e:'🛡️',name:'อยู่ในงบ 1 สัปดาห์',test:()=>weekUnderBudget()},
+];
+function maxStreak(){
+  const days=[...new Set(db.entries.map(e=>e.date))].sort();
+  let best=0,cur=0,prev=null;
+  days.forEach(d=>{
+    if(prev){const diff=(new Date(d)-new Date(prev))/86400000;cur=diff===1?cur+1:1;}else cur=1;
+    best=Math.max(best,cur);prev=d;
+  });
+  return best;
+}
+function weekUnderBudget(){
+  const b=db.settings.dailyBudget; if(!b)return false;
+  let ok=0;
+  for(let i=0;i<7;i++){
+    const d=new Date();d.setDate(d.getDate()-i);const ds=iso(d);
+    const spent=db.entries.filter(e=>e.date===ds&&e.type==='expense').reduce((s,e)=>s+e.amount,0);
+    if(db.entries.some(e=>e.date===ds)&&spent<=b)ok++;
+  }
+  return ok>=7;
+}
+function renderBadges(){
+  const g=$('badgegrid');g.innerHTML='';
+  BADGES.forEach(b=>{
+    const got=b.test();
+    const el=document.createElement('div');el.className='badge'+(got?'':' locked');
+    el.innerHTML=`<div class="e">${got?b.e:'🔒'}</div><div class="nm">${b.name}</div>`;
+    g.appendChild(el);
+  });
+}
+let prevBadges=null;
+function checkBadgeUnlock(){
+  const now=BADGES.filter(b=>b.test()).map(b=>b.id);
+  if(prevBadges){const fresh=now.find(id=>!prevBadges.includes(id));if(fresh){const b=BADGES.find(x=>x.id===fresh);setTimeout(()=>toast('🎉 ปลดล็อกแบดจ: '+b.name),900);}}
+  prevBadges=now;
+}
+
+/* ============ SETTINGS ============ */
+function renderSettings(){
+  $('set-daily').value=db.settings.dailyBudget||'';
+  $('set-cycle').value=db.settings.cycleStart||1;
+  ['expense','income'].forEach(type=>{
+    const box=$('cats-'+type);box.innerHTML='';
+    db.categories.filter(c=>c.type===type&&!c.hidden).forEach(c=>{
+      const row=document.createElement('div');row.className='catedit';
+      row.innerHTML=`<span class="e">${c.icon}</span><span class="nm">${c.name}</span><button class="x">✕</button>`;
+      row.querySelector('.x').onclick=()=>delCat(c.id);
+      box.appendChild(row);
+    });
+    const add=document.createElement('button');add.className='addcatbtn';add.textContent='＋ เพิ่มหมวด'+(type==='income'?'รายรับ':'รายจ่าย');
+    add.onclick=()=>openCatSheet(type);
+    box.appendChild(add);
+  });
+  const ql=$('qa-list');ql.innerHTML='';
+  db.quickAdds.forEach(q=>{
+    const c=cat(q.categoryId)||{icon:'•'};
+    const row=document.createElement('div');row.className='catedit';
+    row.innerHTML=`<span class="e">${c.icon}</span><span class="nm">${q.label} · ${baht(q.amount)}</span><button class="x">✕</button>`;
+    row.querySelector('.x').onclick=()=>{db.quickAdds=db.quickAdds.filter(x=>x.id!==q.id);persist();renderSettings();};
+    ql.appendChild(row);
+  });
+  const addq=document.createElement('button');addq.className='addcatbtn';addq.textContent='＋ เพิ่มรายการด่วน';
+  addq.onclick=openQuickSheet;
+  ql.appendChild(addq);
+}
+function saveSettings(){
+  db.settings.dailyBudget=parseInt($('set-daily').value,10)||0;
+  let cs=parseInt($('set-cycle').value,10)||1; cs=Math.min(31,Math.max(1,cs));
+  db.settings.cycleStart=cs; $('set-cycle').value=cs;
+  persist(); toast('บันทึกการตั้งค่าแล้ว');
+}
+function delCat(id){
+  const used=db.entries.some(e=>e.categoryId===id);
+  if(used){ if(!confirm('หมวดนี้มีรายการเก่าอยู่ — จะซ่อนจากรายการเลือก แต่ไม่ลบรายการเก่า ตกลงไหม?'))return;
+    cat(id).hidden=true;
+  }else{ if(!confirm('ลบหมวดนี้?'))return; db.categories=db.categories.filter(c=>c.id!==id);}
+  persist(); renderSettings();
+}
+
+/* ============ SHEETS ============ */
+let pickedEmoji=EMOJIS[0];
+function openCatSheet(type){
+  pickedEmoji=EMOJIS[0];
+  $('sheet').innerHTML=`<h3>เพิ่มหมวด${type==='income'?'รายรับ':'รายจ่าย'}</h3>
+    <div class="field"><label>ชื่อหมวด</label><input id="c-name" placeholder="เช่น ค่าเน็ต"/></div>
+    <div class="field"><label>เลือกไอคอน</label><div class="emojipick" id="epick"></div></div>
+    <button class="primary" onclick="addCat('${type}')">เพิ่มหมวด</button>`;
+  const ep=$('epick');
+  EMOJIS.forEach((e,i)=>{const b=document.createElement('button');b.textContent=e;if(i===0)b.classList.add('on');
+    b.onclick=()=>{pickedEmoji=e;ep.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');};
+    ep.appendChild(b);});
+  openSheet(); setTimeout(()=>$('c-name').focus(),100);
+}
+function addCat(type){
+  const name=$('c-name').value.trim(); if(!name){toast('กรอกชื่อหมวด');return;}
+  const id='c'+Date.now();
+  db.categories.push({id,name,icon:pickedEmoji,type});
+  persist(); closeSheet();
+  if($('s-add').classList.contains('active')){selCat=id;renderAdd();}else renderSettings();
+  toast('เพิ่มหมวดแล้ว '+pickedEmoji+' '+name);
+}
+function openQuickSheet(){
+  const opts=db.categories.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+  $('sheet').innerHTML=`<h3>เพิ่มรายการด่วน</h3>
+    <div class="field"><label>ชื่อ</label><input id="q-label" placeholder="เช่น กาแฟ"/></div>
+    <div class="field"><label>จำนวนเงิน (฿)</label><input id="q-amt" inputmode="numeric" placeholder="60"/></div>
+    <div class="field"><label>หมวด</label><select id="q-cat" style="width:100%;padding:12px;border:.5px solid var(--line2);border-radius:10px;background:var(--bg)">${opts}</select></div>
+    <button class="primary" onclick="addQuick()">เพิ่ม</button>`;
+  openSheet();
+}
+function addQuick(){
+  const label=$('q-label').value.trim();const amount=parseInt($('q-amt').value,10);const categoryId=$('q-cat').value;
+  if(!label||!amount){toast('กรอกข้อมูลให้ครบ');return;}
+  db.quickAdds.push({id:'q'+Date.now(),label,amount,categoryId});persist();closeSheet();renderSettings();
+}
+function openSheet(){$('sheet-bg').classList.add('open');}
+function closeSheet(){$('sheet-bg').classList.remove('open');}
+
+/* ============ BACKUP ============ */
+function exportData(){
+  const data=JSON.stringify(db,null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='jodngern-backup-'+todayStr()+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('ดาวน์โหลดไฟล์สำรองแล้ว');
+}
+function importData(ev){
+  const file=ev.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const obj=JSON.parse(reader.result);
+      if(!obj||!Array.isArray(obj.entries)||!Array.isArray(obj.categories)) throw new Error('รูปแบบไฟล์ไม่ถูกต้อง');
+      if(!confirm('กู้คืนข้อมูลจากไฟล์นี้? ข้อมูลปัจจุบันจะถูกแทนที่ทั้งหมด')) {ev.target.value=''; return;}
+      db={...structuredClone(DEFAULT),...obj};
+      db.settings={...DEFAULT.settings,...(obj.settings||{})};
+      persist(); prevBadges=BADGES.filter(b=>b.test()).map(b=>b.id);
+      renderSettings(); toast('กู้คืนข้อมูลสำเร็จ ✓');
+    }catch(e){ alert('กู้คืนไม่สำเร็จ: '+e.message); }
+    ev.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+function resetAll(){
+  if(confirm('ล้างข้อมูลทั้งหมดและเริ่มใหม่? (กู้คืนไม่ได้)')){
+    localStorage.removeItem(KEY);load();go('add');renderSettings();toast('ล้างข้อมูลแล้ว');
+  }
+}
+
+/* ============ NAV ============ */
+function go(s){
+  document.querySelectorAll('.screen').forEach(el=>el.classList.remove('active'));
+  $('s-'+s).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));
+  window.scrollTo(0,0);
+  if(s==='add')renderAdd();
+  if(s==='summary')renderSummary();
+  if(s==='goals')renderGoals();
+  if(s==='settings')renderSettings();
+}
+
+/* ============ PWA: SERVICE WORKER (inline via blob) ============ */
+if('serviceWorker' in navigator){
+  const swCode = `
+    const CACHE='jodngern-v1';
+    const ASSETS=[];
+    self.addEventListener('install', e=>{
+      self.skipWaiting();
+    });
+    self.addEventListener('activate', e=>{
+      e.waitUntil(clients.claim());
+    });
+    self.addEventListener('fetch', e=>{
+      // Cache-first for same-origin, network-first for others
+      if(e.request.url.startsWith(self.location.origin)){
+        e.respondWith(
+          caches.open(CACHE).then(cache=>
+            cache.match(e.request).then(cached=>{
+              const fetched = fetch(e.request).then(res=>{
+                cache.put(e.request, res.clone());
+                return res;
+              }).catch(()=>cached);
+              return cached || fetched;
+            })
+          )
+        );
+      }
+    });
+  `;
+  const blob = new Blob([swCode], {type:'application/javascript'});
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl, {scope:'./'}).catch(()=>{});
+}
+
+/* ============ PWA: INSTALL PROMPT (Android Chrome) ============ */
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  $('install-banner').classList.add('show');
+  // Adjust app top padding when banner shows
+  $('app').style.paddingTop = '80px';
+});
+$('btn-install').addEventListener('click', async ()=>{
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const {outcome} = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  $('install-banner').classList.remove('show');
+  $('app').style.paddingTop = '';
+  if(outcome==='accepted') toast('ติดตั้งแอปแล้ว! 🎉');
+});
+$('btn-close-banner').addEventListener('click', ()=>{
+  $('install-banner').classList.remove('show');
+  $('app').style.paddingTop = '';
+});
+
+/* ============ INIT ============ */
+prevBadges=BADGES.filter(b=>b.test()).map(b=>b.id);
+renderAdd();
+</script>
+</body>
+</html>
